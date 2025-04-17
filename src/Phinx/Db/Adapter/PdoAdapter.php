@@ -15,6 +15,8 @@ use Cake\Database\Query\DeleteQuery;
 use Cake\Database\Query\InsertQuery;
 use Cake\Database\Query\SelectQuery;
 use Cake\Database\Query\UpdateQuery;
+use Cake\I18n\Date;
+use Cake\I18n\DateTime;
 use InvalidArgumentException;
 use PDO;
 use PDOException;
@@ -320,6 +322,32 @@ abstract class PdoAdapter extends AbstractAdapter implements DirectActionInterfa
     }
 
     /**
+     * Get the parameters array for prepared insert statement
+     *
+     * @param array $row Row to be inserted into DB
+     * @return array
+     */
+    protected function getInsertParameters(array $row): array
+    {
+        $params = [];
+        foreach ($row as $value) {
+            if ($value instanceof Literal) {
+                continue;
+            } elseif ($value instanceof DateTime) {
+                $params[] = $value->toDateTimeString();
+            } elseif ($value instanceof Date) {
+                $params[] = $value->toDateString();
+            } elseif (is_bool($value)) {
+                $params[] = $this->castToBool($value);
+            } else {
+                $params[] = $value;
+            }
+        }
+
+        return $params;
+    }
+
+    /**
      * @inheritDoc
      */
     public function insert(Table $table, array $row): void
@@ -342,21 +370,14 @@ abstract class PdoAdapter extends AbstractAdapter implements DirectActionInterfa
             $this->output->writeln($sql);
         } else {
             $sql .= '(';
-            $vals = [];
             $values = [];
             foreach ($row as $value) {
                 $values[] = $value instanceof Literal ? (string)$value : '?';
-                if (!($value instanceof Literal)) {
-                    if (is_bool($value)) {
-                        $vals[] = $this->castToBool($value);
-                    } else {
-                        $vals[] = $value;
-                    }
-                }
             }
+            $params = $this->getInsertParameters($row);
             $sql .= implode(', ', $values) . ')';
             $stmt = $this->getConnection()->prepare($sql);
-            $stmt->execute($vals);
+            $stmt->execute($params);
         }
     }
 
@@ -424,21 +445,13 @@ abstract class PdoAdapter extends AbstractAdapter implements DirectActionInterfa
             }
             $sql .= implode(',', $queries);
             $stmt = $this->getConnection()->prepare($sql);
-            $vals = [];
+            $params = [];
 
             foreach ($rows as $row) {
-                foreach ($row as $v) {
-                    if ($v instanceof Literal) {
-                        continue;
-                    } elseif (is_bool($v)) {
-                        $vals[] = $this->castToBool($v);
-                    } else {
-                        $vals[] = $v;
-                    }
-                }
+                $params = array_merge($params, $this->getInsertParameters($row));
             }
 
-            $stmt->execute($vals);
+            $stmt->execute($params);
         }
     }
 
