@@ -304,11 +304,11 @@ class Manager
      * Migrate an environment to the specified version.
      *
      * @param string $environment Environment
-     * @param int|null $version version to migrate to
+     * @param string|null $version version to migrate to
      * @param bool $fake flag that if true, we just record running the migration, but not actually do the migration
      * @return void
      */
-    public function migrate(string $environment, ?int $version = null, bool $fake = false): void
+    public function migrate(string $environment, ?string $version = null, bool $fake = false): void
     {
         $migrations = $this->getMigrations($environment);
         $env = $this->getEnvironment($environment);
